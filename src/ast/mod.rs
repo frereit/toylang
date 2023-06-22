@@ -10,13 +10,13 @@ pub enum Stmt {
     Expr(Box<Expr>),
     If(Box<Expr>, Box<Block>),
     While(Box<Expr>, Box<Block>), 
-    Print(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Val(Val),
     Op(Op),
+    Call(String, Vec<Box<Expr>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -38,5 +38,6 @@ pub enum Op {
     Div(Box<Expr>, Box<Expr>),
     Gt(Box<Expr>, Box<Expr>),
     Eq(Box<Expr>, Box<Expr>),
-    Lt(Box<Expr>, Box<Expr>)
+    Lt(Box<Expr>, Box<Expr>),
+    Mod(Box<Expr>, Box<Expr>),
 }
