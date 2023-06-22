@@ -1,28 +1,104 @@
+use std::error::Error;
+
+use regex::Regex;
+
 #[derive(Debug, Clone, PartialEq)]
-pub enum Block {
-    StmtList(Vec<Stmt>),
-    Stmt(Box<Stmt>),
+pub struct Function {
+    pub name: String,
+    pub params: Vec<String>,
+    pub content: Block,
 }
+
+pub type Block = Vec<Stmt>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Assign(String, Box<Expr>),
-    Expr(Box<Expr>),
-    If(Box<Expr>, Box<Block>),
-    While(Box<Expr>, Box<Block>), 
+    Declare {
+        name: String,
+        value: Expr,
+    },
+    Assign {
+        name: String,
+        value: Expr,
+    },
+    If {
+        cond: Expr,
+        then: Block,
+        r#else: Block,
+    },
+    While {
+        cond: Expr,
+        r#do: Block,
+    },
+    Expr {
+        expr: Expr,
+    },
+}
+
+impl From<Expr> for Stmt {
+    fn from(expr: Expr) -> Self {
+        Stmt::Expr { expr }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Val(Val),
-    Op(Op),
-    Call(String, Vec<Box<Expr>>),
+    Const(Const),
+    Var(String),
+    Op(Box<Op>),
+    Call { name: String, args: Vec<Expr> },
+}
+
+impl From<Const> for Expr {
+    fn from(item: Const) -> Self {
+        Expr::Const(item)
+    }
+}
+
+impl From<Op> for Expr {
+    fn from(item: Op) -> Self {
+        Expr::Op(Box::new(item))
+    }
+}
+
+impl TryFrom<String> for Expr {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let re = Regex::new(r"[a-zA-Z_]+").unwrap();
+        if re.is_match(&value) {
+            Ok(Expr::Var(value))
+        } else {
+            Err("Invalid identifier name.".into())
+        }
+    }
+}
+
+impl TryFrom<Val> for Expr {
+    type Error = String;
+    fn try_from(value: Val) -> Result<Self, Self::Error> {
+        match value {
+            Val::Const(c) => Ok(c.into()),
+            Val::Var(v) => v.try_into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Val {
+pub(crate) enum Val {
     Const(Const),
-    Var(String)
+    Var(String),
+}
+
+impl From<Const> for Val {
+    fn from(c: Const) -> Self {
+        Val::Const(c)
+    }
+}
+
+impl From<String> for Val {
+    fn from(v: String) -> Self {
+        Val::Var(v)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,12 +108,12 @@ pub enum Const {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
-    Add(Box<Expr>, Box<Expr>),
-    Sub(Box<Expr>, Box<Expr>),
-    Mul(Box<Expr>, Box<Expr>),
-    Div(Box<Expr>, Box<Expr>),
-    Gt(Box<Expr>, Box<Expr>),
-    Eq(Box<Expr>, Box<Expr>),
-    Lt(Box<Expr>, Box<Expr>),
-    Mod(Box<Expr>, Box<Expr>),
+    Add(Expr, Expr),
+    Sub(Expr, Expr),
+    Mul(Expr, Expr),
+    Div(Expr, Expr),
+    Gt(Expr, Expr),
+    Eq(Expr, Expr),
+    Lt(Expr, Expr),
+    Mod(Expr, Expr),
 }

@@ -1,7 +1,9 @@
-use ::toylang::{ast, toylang};
+use ::toylang::toylang;
+use ::toylang::ast;
 
-fn main() {
-    let expected_main = ast::Function {
+#[test]
+fn it_parses_fizzbuzz() {
+    let expected = vec![ast::Function {
         name: "main".into(),
         params: vec![],
         content: vec![
@@ -79,37 +81,33 @@ fn main() {
                 ],
             },
         ],
-    };
-    dbg!(&expected_main);
+    }];
     let parser = toylang::SourceFileParser::new();
-    let stmts = parser
+    let parsed = parser
         .parse(
             r#"
-    fn main() {
-        let x = 0;
-        while x < 100 {
-            if (x % 15) == 0 {
-                println(-15);
+        fn main() {
+            let x = 0;
+            while x < 100 {
+                if (x % 15) == 0 {
+                    println(-15);
+                }
+                else { 
+                    if (x % 5) == 0 {
+                        println(-5);
+                    } else { 
+                        if (x % 3) == 0 {
+                            println(-3);
+                        } else {
+                            println(x);
+                        }
+                    } 
+                }
+                x = x + 1;
             }
-            else { 
-                if (x % 5) == 0 {
-                    println(-5);
-                } else { 
-                    if (x % 3) == 0 {
-                        println(-3);
-                    } else {
-                        println(x);
-                    }
-                } 
-            }
-            x = x + 1;
         }
-    }
-        "#,
+            "#,
         )
         .unwrap();
-    dbg!(&stmts);
-    if stmts[0] == expected_main {
-        println!("Test passed!!!");
-    }
+    assert_eq!(parsed, expected);
 }

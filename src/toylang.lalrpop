@@ -1,11 +1,25 @@
 use std::str::FromStr;
-use crate::ast::{Block, Expr, Op, Stmt, Const, Val};
+use crate::ast::{Function, Block, Expr, Op, Stmt, Const, Val};
 
 grammar;
 
-pub Block: Block = {
-    Stmt => Block::Stmt(Box::new(<>)),
-    "{" <l:StmtList> "}" => Block::StmtList(l),
+pub SourceFile: Vec<Function> = {
+    Function => vec![<>],
+    <l:SourceFile> <f:Function> => l.into_iter().chain([f].into_iter()).collect(),
+}
+
+Function: Function = {
+    "fn" <name:Identifier> "(" <params:FunctionParams> ")" <content:Block> => Function { name, params, content },
+    "fn" <name:Identifier> "()" <content:Block> => Function { name, params: vec![], content },
+}
+
+FunctionParams: Vec<String> = {
+    Identifier => vec![<>],
+    <l:FunctionParams> "," <p:Identifier> => l.into_iter().chain([p].into_iter()).collect(),
+}
+
+Block: Vec<Stmt> = {
+    "{" <l:StmtList> "}" => l,
 }
 
 StmtList: Vec<Stmt> = {
@@ -14,52 +28,52 @@ StmtList: Vec<Stmt> = {
 }
 
 Stmt: Stmt = {
-    "let" <v:Var> "=" <e:Expr> ";" => Stmt::Assign(v, e),
-    <e:Expr> ";" => Stmt::Expr(e),
-    "if" <e:Expr> <b:Block> => Stmt::If(e, Box::new(b)),
-    "while" <e:Expr> <b:Block> => Stmt::While(e, Box::new(b)),
+    "let" <name:Identifier> "=" <value:Expr> ";" => Stmt::Declare { name, value },
+    <name:Identifier> "=" <value:Expr> ";" => Stmt::Assign { name, value },
+    "if" <cond:Expr> <then:Block> => Stmt::If { cond, then, r#else: vec![] },
+    "if" <cond:Expr> <then:Block> "else" <r#else:Block> => Stmt::If { cond, then, r#else },
+    "while" <cond:Expr> <r#do:Block> => Stmt::While { cond, r#do },
+    <e:Expr> ";" => e.into(),
 }
 
-Expr: Box<Expr> = {
-    CalcExpr,
-    <l:Term> ">" <r:Term> => Box::new(Expr::Op(Op::Gt(l, r))),
-    <l:Term> "<" <r:Term> => Box::new(Expr::Op(Op::Lt(l, r))),
-    <l:Term> "==" <r:Term> => Box::new(Expr::Op(Op::Eq(l, r))),
-    <l:Term> "%" <r:Term> => Box::new(Expr::Op(Op::Mod(l, r))),
-    <f:Var> "[" <a:Args> "]" => Box::new(Expr::Call(f, a)),
+Expr: Expr = {
+    Const => <>.into(),
+    Identifier => <>.try_into().expect("Invalid identifiers are caught during parsing anyway."),
+    Op => <>.into(),
+    <name:Identifier> "()" => Expr::Call { name, args: vec![]},
+    <name:Identifier> "(" <args:FunctionArgs> ")" => Expr::Call { name, args },
 }
 
-Args: Vec<Box<Expr>> = {
+FunctionArgs: Vec<Expr> = {
     Expr => vec![<>],
-    <l:Args> "," <e:Expr> => l.into_iter().chain([e].into_iter()).collect(),
+    <l:FunctionArgs> "," <a:Expr> => l.into_iter().chain([a].into_iter()).collect(),
 }
 
-CalcExpr: Box<Expr> = {
-    <l:Expr> "+" <r:Factor> => Box::new(Expr::Op(Op::Add(l, r))),
-    <l:Expr> "-" <r:Factor> => Box::new(Expr::Op(Op::Sub(l, r))),
-    Factor,
+Op: Op = {
+    <lhs:BracketedExpr> "+" <rhs:BracketedExpr> => Op::Add(lhs, rhs),
+    <lhs:BracketedExpr> "-" <rhs:BracketedExpr> => Op::Sub(lhs, rhs),
+    <lhs:BracketedExpr> "*" <rhs:BracketedExpr> => Op::Mul(lhs, rhs),
+    <lhs:BracketedExpr> "/" <rhs:BracketedExpr> => Op::Div(lhs, rhs),
+    <lhs:BracketedExpr> ">" <rhs:BracketedExpr> => Op::Gt(lhs, rhs),
+    <lhs:BracketedExpr> "==" <rhs:BracketedExpr> => Op::Eq(lhs, rhs),
+    <lhs:BracketedExpr> "<" <rhs:BracketedExpr> => Op::Lt(lhs, rhs),
+    <lhs:BracketedExpr> "%" <rhs:BracketedExpr> => Op::Mod(lhs, rhs),
 }
 
-Factor: Box<Expr> = {
-    <l:Factor> "*" <r:Term> => Box::new(Expr::Op(Op::Mul(l, r))),
-    <l:Factor> "/" <r:Term> => Box::new(Expr::Op(Op::Div(l ,r))),
-    Term,
-}
-
-Term: Box<Expr> = {
-    Val => Box::new(Expr::Val(<>)),
-    "(" <Expr> ")",
+BracketedExpr: Expr = {
+    Val => <>.try_into().expect("Invalid identifiers are caught during parsing anyway."),
+    "(" <e:Expr> ")" => e,
 }
 
 Val: Val = {
-    Var => Val::Var(<>),
-    Const => Val::Const(<>),
+    Const => <>.into(),
+    Identifier => <>.into(),
 }
 
 Const: Const = {
-    r"-?[0-9]+" => Const::Integer(i64::from_str(<>).unwrap())
+     r"-?[0-9]+" => Const::Integer(i64::from_str(<>).unwrap())
 }
 
-Var: String = r"[a-zA-Z_]+" => <>.to_owned();
+Identifier: String = r"[a-zA-Z_]+" => <>.to_owned();
 
 
